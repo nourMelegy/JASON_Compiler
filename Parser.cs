@@ -1,16 +1,18 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static System.Windows.Forms.AxHost;
 
 namespace JASON_Compiler
 {
     public class Node
     {
         public List<Node> Children = new List<Node>();
-
+        
         public string Name;
         public Node(string N)
         {
@@ -21,8 +23,8 @@ namespace JASON_Compiler
     {
         int InputPointer = 0;
         List<Token> TokenStream;
-        public Node root;
-
+        public  Node root;
+       
         public Node StartParsing(List<Token> TokenStream)
         {
             this.InputPointer = 0;
@@ -31,7 +33,6 @@ namespace JASON_Compiler
             root.Children.Add(Program());
             return root;
         }
-
         //Program → FunctionList Main_Function
         Node Program()
         {
@@ -55,7 +56,6 @@ namespace JASON_Compiler
 
             return functionList;
         }
-
         //Main_Function → Datatype main ( ) Function_Body
         Node Main_Function()
         {
@@ -83,9 +83,33 @@ namespace JASON_Compiler
 
             return decl;
         }
+        Node Function_Body()
+        {
+            Node FnBody = new Node("Function_Body");
 
-        //ParameterList → Parameter MoreParameters | ε
-        Node ParameterList()
+            //Function_Body → { Statements Return_Statement } | { Statements }
+            //
+            FnBody.Children.Add(match(Token_Class.LCurly));
+            FnBody.Children.Add(Statements());
+            if (InputPointer < TokenStream.Count && TokenStream[InputPointer].token_type == Token_Class.Return)
+            {
+                FnBody.Children.Add(match(Token_Class.Return));
+                FnBody.Children.Add(Expression());
+            }
+            FnBody.Children.Add(match(Token_Class.RCurly));
+
+            return FnBody;
+        }
+        Node Function_Statement()
+        {
+            //Function_Statement → Function_Declaration Function_Body
+            Node FnStatement = new Node("Function_Statement");
+            FnStatement.Children.Add(Function_Declaration());
+            FnStatement.Children.Add(Function_Body());
+            return FnStatement;
+        }
+        Node FnBody = new Node("Function_Body");
+            Node ParameterList()
         {
             Node paramList = new Node("ParameterList");
 
@@ -259,6 +283,221 @@ namespace JASON_Compiler
             }
             return arguments_tail;
         }
+
+
+
+
+        Node Statements()
+        {
+            Node Statements = new Node("Statements");
+            Statements.Children.Add(Statement());
+            Statements.Children.Add(StatementsDash());
+            return Statements;
+
+        }
+
+        Node Statement()
+        {
+            Node Statement = new Node("Statement");
+            if (InputPointer < TokenStream.Count)
+            {
+                //read statement
+                if (TokenStream[InputPointer].token_type == Token_Class.Read)
+                {
+                    Statement.Children.Add(match(Token_Class.Read));
+                    Statement.Children.Add(match(Token_Class.Identifier));
+                }
+                //write statement
+                else if (TokenStream[InputPointer].token_type == Token_Class.Write)
+                {
+                    Statement.Children.Add(match(Token_Class.Write));
+                    Statement.Children.Add(match(Token_Class.Identifier));
+                }
+                //return statement
+                else if (TokenStream[InputPointer].token_type == Token_Class.Return)
+                {
+                    Statement.Children.Add(match(Token_Class.Return));
+                    Statement.Children.Add(Expression());
+                }
+                // Id_Tail statement
+                else if (TokenStream[InputPointer].token_type == Token_Class.Identifier)
+                {
+                    Statement.Children.Add(match(Token_Class.Identifier));
+                    
+                    Statement.Children.Add(Statement_Id_Tail());
+                }
+                //repeat statement
+                else if (TokenStream[InputPointer].token_type == Token_Class.Repeat)
+                {
+                    Statement.Children.Add(match(Token_Class.Repeat));
+                    Statement.Children.Add(Statements());
+                    Statement.Children.Add(match(Token_Class.Until));
+                    Statement.Children.Add(Condition_Statement());
+                }
+                //if statement
+                else if (TokenStream[InputPointer].token_type == Token_Class.If)
+                {
+                    Statement.Children.Add(match(Token_Class.If));
+                    Statement.Children.Add(Condition_Statement());
+                    Statement.Children.Add(match(Token_Class.Then));
+                    Statement.Children.Add(Statements());
+                    Statement.Children.Add(IfTail());
+                    Statement.Children.Add(match(Token_Class.End));
+                }
+                //declaration statement
+                else if (TokenStream[InputPointer].token_type == Token_Class.Int || TokenStream[InputPointer].token_type == Token_Class.Float || TokenStream[InputPointer].token_type == Token_Class.String)
+                {
+                    if(TokenStream[InputPointer].token_type == Token_Class.Int)
+                    {
+                        Statement.Children.Add(match(Token_Class.Int));
+                    }
+                    else if (TokenStream[InputPointer].token_type == Token_Class.Float)
+                    {
+                        Statement.Children.Add(match(Token_Class.Float));
+                    }
+                    else if (TokenStream[InputPointer].token_type == Token_Class.String)
+                    {
+                        Statement.Children.Add(match(Token_Class.String));
+                    }
+                    Statement.Children.Add(IdList());
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            return Statement;
+
+        }
+        Node StatementsDash()
+        {
+            Node Statements_dash = new Node("StatementsDash");
+            if (InputPointer < TokenStream.Count)
+            {
+                if (TokenStream[InputPointer].token_type == Token_Class.Semicolon)
+                {
+                    Statements_dash.Children.Add(match(Token_Class.Semicolon));
+                    Statements_dash.Children.Add(Statement());
+                    Statements_dash.Children.Add(StatementsDash());
+                }
+                else
+                {
+                    return null;
+                }
+
+            }
+            return Statements_dash;
+        }
+        Node IfTail() {
+            Node If_Tail = new Node("IfTail");
+            if (InputPointer < TokenStream.Count)
+            {
+                if (TokenStream[InputPointer].token_type == Token_Class.ElseIf)
+                {
+                    If_Tail.Children.Add(match(Token_Class.ElseIf));
+                    If_Tail.Children.Add(Condition());
+                    If_Tail.Children.Add(match(Token_Class.Then));
+                    If_Tail.Children.Add(Statements());
+                    If_Tail.Children.Add(IfTail());
+                }
+                else if (TokenStream[InputPointer].token_type == Token_Class.Else)
+                {
+                    If_Tail.Children.Add(match(Token_Class.Else));
+                    If_Tail.Children.Add(Statements());
+
+                }
+                else
+                {
+                    return null;
+
+                }
+            }
+            return If_Tail;
+        }
+        Node IdList() {
+            Node Id_List = new Node("IdList");
+            Id_List.Children.Add(match(Token_Class.Identifier));
+            Id_List.Children.Add(IdListDash());
+            return Id_List;
+        }
+        Node IdListDash()
+        {
+            Node Id_List_Dash = new Node("IdListDash");
+            Id_List_Dash.Children.Add(match(Token_Class.Semicolon));
+            if (InputPointer < TokenStream.Count)
+            {
+                if (TokenStream[InputPointer].token_type == Token_Class.Semicolon)
+                {
+                    Id_List_Dash.Children.Add(match(Token_Class.Semicolon));
+                    Id_List_Dash.Children.Add(match(Token_Class.Identifier));
+                    Id_List_Dash.Children.Add(IdListDash());
+                }
+                else
+                {
+                    return null;
+                }
+
+
+            }
+
+            return Id_List_Dash;
+        }
+
+        Node Statement_Id_Tail() {
+            Node Id_Tail = new Node("Id_Tail");
+            if (InputPointer < TokenStream.Count)
+            {
+                if (TokenStream[InputPointer].token_type == Token_Class.Assign)
+                {
+                    Id_Tail.Children.Add(match(Token_Class.Assign));
+                    Id_Tail.Children.Add(Expression());
+                }
+                else if (TokenStream[InputPointer].token_type == Token_Class.LParanthesis)
+                {
+                    Id_Tail.Children.Add(match(Token_Class.LParanthesis));
+                    if (TokenStream[InputPointer].token_type == Token_Class.Identifier)
+                    {
+                        Id_Tail.Children.Add(Arguments());
+                    }
+
+                    Id_Tail.Children.Add(match(Token_Class.RParanthesis));
+                    Id_Tail.Children.Add(match(Token_Class.Semicolon));
+
+                }
+                else if (TokenStream[InputPointer].token_type == Token_Class.LessT ||
+                         TokenStream[InputPointer].token_type == Token_Class.GreaterT ||
+                         TokenStream[InputPointer].token_type == Token_Class.Equal ||
+                         TokenStream[InputPointer].token_type == Token_Class.NotEqual)
+                {
+                    if (TokenStream[InputPointer].token_type == Token_Class.LessT)
+                        Id_Tail.Children.Add(match(Token_Class.LessT));
+                    else if (TokenStream[InputPointer].token_type == Token_Class.GreaterT)
+                        Id_Tail.Children.Add(match(Token_Class.GreaterT));
+                    else if (TokenStream[InputPointer].token_type == Token_Class.Equal)
+                        Id_Tail.Children.Add(match(Token_Class.Equal));
+                    else if (TokenStream[InputPointer].token_type == Token_Class.NotEqual)
+                        Id_Tail.Children.Add(match(Token_Class.NotEqual));
+
+
+                    Id_Tail.Children.Add(Term());
+                    Id_Tail.Children.Add(Condition_Ext());
+                }
+                else
+                {
+                    // If it's not :=, not (, and not a condition operator, it's a syntax error!
+                    Errors.Error_List.Add("Parsing Error: Expected assignment ':=', function call '(', or condition operator, but found "
+                    + TokenStream[InputPointer].token_type.ToString() + "\r\n");
+                    InputPointer++;
+                    return null;
+                }
+
+
+            }
+            return Id_Tail;
+        }
+
+        // Implement your logic here
+
         public Node match(Token_Class ExpectedToken)
         {
 
@@ -286,7 +525,7 @@ namespace JASON_Compiler
             else
             {
                 Errors.Error_List.Add("Parsing Error: Expected "
-                        + ExpectedToken.ToString() + "\r\n");
+                        + ExpectedToken.ToString()  + "\r\n");
                 InputPointer++;
                 return null;
             }
@@ -315,27 +554,5 @@ namespace JASON_Compiler
             }
             return tree;
         }
-
-        /*
-        Node Header()
-        {
-            Node header = new Node("Header");
-            // write your code here to check the header sructure
-            return header;
-        }
-        Node DeclSec()
-        {
-            Node declsec = new Node("DeclSec");
-            // write your code here to check atleast the declare sturcure 
-            // without adding procedures
-            return declsec;
-        }
-        Node Block()
-        {
-            Node block = new Node("block");
-            // write your code here to match statements
-            return block;
-        }
-        */
     }
 }
