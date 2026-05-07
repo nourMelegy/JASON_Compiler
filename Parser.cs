@@ -43,7 +43,170 @@ namespace JASON_Compiler
 
             return program;
         }
+        
+        // Expression -> String | Equation
+Node Expression()
+{
+    Node expression = new Node("Expression");
 
+    if (InputPointer<TokenStream.Count &&
+        TokenStream[InputPointer].token_type == Token_Class.StringLiteral)
+    {
+        expression.Children.Add(match(Token_Class.StringLiteral));
+    }
+     else if (InputPointer < TokenStream.Count &&
+                    TokenStream[InputPointer].token_type == Token_Class.Endl)
+            {
+                expression.Children.Add(match(Token_Class.Endl)); //not in cfg but had to be handled, can be deleted if handled somewhere else
+            }
+            else
+    {
+        expression.Children.Add(Equation());
+    }
+
+return expression;
+}
+         // Equation -> Factor Equation'
+ Node Equation()
+ {
+     Node equation = new Node("Equation");
+     equation.Children.Add(Factor());
+     equation.Children.Add(Equation_tail());
+     return equation;
+ }
+ Node Equation_tail()
+ {
+     Node equation_prime = new Node("Equation_tail");
+
+     if (InputPointer < TokenStream.Count &&
+         (TokenStream[InputPointer].token_type == Token_Class.Plus ||
+          TokenStream[InputPointer].token_type == Token_Class.Minus))
+     {
+         equation_prime.Children.Add(AddOp());
+         equation_prime.Children.Add(Factor());
+         equation_prime.Children.Add(Equation_tail());
+     }
+
+     return equation_prime;
+ }
+          Node Factor()
+  {
+      Node factor = new Node("Factor");
+      factor.Children.Add(Term());
+      factor.Children.Add(Factor_tail());
+      return factor;
+  }
+  Node Factor_tail()
+  {
+      Node factor_prime = new Node("Factor_tail");
+
+      if (InputPointer < TokenStream.Count &&
+          (TokenStream[InputPointer].token_type == Token_Class.Multiply ||
+           TokenStream[InputPointer].token_type == Token_Class.Divide))
+      {
+          factor_prime.Children.Add(MultOp());
+          factor_prime.Children.Add(Term());
+          factor_prime.Children.Add(Factor_tail());
+      }
+
+      return factor_prime;
+  }
+         // MultOp -> * | /
+  Node MultOp()
+ {
+     Node multOp = new Node("MultOp");
+
+     if (InputPointer < TokenStream.Count)
+     {
+         if (TokenStream[InputPointer].token_type == Token_Class.Multiply)
+             multOp.Children.Add(match(Token_Class.Multiply));
+         else if (TokenStream[InputPointer].token_type == Token_Class.Divide)
+             multOp.Children.Add(match(Token_Class.Divide));
+         else
+         {
+             Errors.Error_List.Add("Parsing Error: Expected '*' or '/' but found " +
+                 TokenStream[InputPointer].token_type.ToString() + "\r\n");
+             InputPointer++;
+         }
+     }
+     else
+     {
+         Errors.Error_List.Add("Parsing Error: Unexpected end of input, Expected MultOp\r\n");
+     }
+
+     return multOp;
+ }
+ // AddOp -> + | -
+ Node AddOp()
+ {
+     Node addOp = new Node("AddOp");
+
+     if (InputPointer < TokenStream.Count)
+     {
+         if (TokenStream[InputPointer].token_type == Token_Class.Plus)
+             addOp.Children.Add(match(Token_Class.Plus));
+         else if (TokenStream[InputPointer].token_type == Token_Class.Minus)
+             addOp.Children.Add(match(Token_Class.Minus));
+         else
+         {
+             Errors.Error_List.Add("Parsing Error: Expected '+' or '-' but found " +
+                 TokenStream[InputPointer].token_type.ToString() + "\r\n");
+             InputPointer++;
+         }
+     }
+     else
+     {
+         Errors.Error_List.Add("Parsing Error: Unexpected end of input, Expected AddOp\r\n");
+     }
+
+     return addOp;
+ }
+     // Term -> Number | Identifier | Function_Call | ( Equation )
+ Node Term()
+ {
+     Node term = new Node("Term");
+
+     if (InputPointer < TokenStream.Count)
+     {
+         if (TokenStream[InputPointer].token_type == Token_Class.Constant)
+         {
+             term.Children.Add(match(Token_Class.Constant));
+         }
+         else if (TokenStream[InputPointer].token_type == Token_Class.Identifier)
+         {
+             if (InputPointer + 1 < TokenStream.Count &&
+                 TokenStream[InputPointer + 1].token_type == Token_Class.LParanthesis)
+             {
+                 term.Children.Add(Function_Call()); // option 2 - clean single call
+             }
+             else
+             {
+                 term.Children.Add(match(Token_Class.Identifier));
+             }
+         }
+         else if (TokenStream[InputPointer].token_type == Token_Class.LParanthesis)
+         {
+             term.Children.Add(match(Token_Class.LParanthesis));
+             term.Children.Add(Equation());
+             term.Children.Add(match(Token_Class.RParanthesis));
+         }
+         else
+         {
+             Errors.Error_List.Add("Parsing Error: Expected Term but found " +
+                 TokenStream[InputPointer].token_type.ToString() + "\r\n");
+             InputPointer++;
+         }
+     }
+     else
+     {
+         Errors.Error_List.Add("Parsing Error: Unexpected end of input, Expected Term\r\n");
+     }
+
+     return term;
+ }    
+        
+        
+        
         //FunctionList → Function_Statement FunctionList | ε
         Node FunctionList()
         {
