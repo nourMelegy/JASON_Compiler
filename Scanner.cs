@@ -12,7 +12,7 @@ public enum Token_Class
     Read, Write,
     Repeat, Until,
     If, ElseIf, Else, Then,
-    Return, Endl, Main,
+    Return, Endl, Main, End,
     // Operators
     Plus, Minus, Multiply, Divide,
     Assign,
@@ -45,7 +45,7 @@ namespace JASON_Compiler
         Dictionary<string, Token_Class> Operators = new Dictionary<string, Token_Class>();
 
         public Scanner()
-        {
+        {    ReservedWords.Add("end", Token_Class.End);
             ReservedWords.Add("int", Token_Class.Int);
             ReservedWords.Add("float", Token_Class.Float);
             ReservedWords.Add("string", Token_Class.String);
