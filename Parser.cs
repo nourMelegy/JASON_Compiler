@@ -261,7 +261,6 @@ namespace JASON_Compiler
                 function_call.Children.Add(Arguments());
             }
             function_call.Children.Add(match(Token_Class.RParanthesis));
-            function_call.Children.Add(match(Token_Class.Semicolon));
             return function_call;
         }
         Node Arguments()
